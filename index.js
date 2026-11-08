@@ -20,14 +20,17 @@ export async function connectToMongoDB() {
 
     const db = client.db("StudyNook");
     let roomsCollection = db.collection("Rooms");
+    const bookingsCollection = db.collection("Bookings");
 
-     app.post("/rooms/my-listings", async (req, res) => {
+    app.post("/rooms/my-listings", async (req, res) => {
       try {
         const room = req.body;
         const result = await roomsCollection.insertOne(room);
         res.send(result);
       } catch (error) {
-        res.status(500).send({ message: "Failed to add room", error: error.message });
+        res
+          .status(500)
+          .send({ message: "Failed to add room", error: error.message });
       }
     });
 
@@ -50,7 +53,8 @@ export async function connectToMongoDB() {
 
     app.get("/rooms", async (req, res) => {
       try {
-        const { search, floor, amenity, maxRate, minCapacity, sort } = req.query;
+        const { search, floor, amenity, maxRate, minCapacity, sort } =
+          req.query;
         let query = {};
 
         if (search) {
@@ -82,25 +86,77 @@ export async function connectToMongoDB() {
           sortOption = { capacity: -1 };
         }
 
-        const rooms = await roomsCollection.find(query).sort(sortOption).toArray();
+        const rooms = await roomsCollection
+          .find(query)
+          .sort(sortOption)
+          .toArray();
         res.send(rooms);
       } catch (error) {
-        res.status(500).send({ message: "Failed to fetch rooms", error: error.message });
+        res
+          .status(500)
+          .send({ message: "Failed to fetch rooms", error: error.message });
       }
     });
 
     app.get("/rooms/:id", async (req, res) => {
       try {
         const id = req.params.id;
-        const room = await roomsCollection.findOne({ _id: new ObjectId(id)});
+        const room = await roomsCollection.findOne({ _id: new ObjectId(id) });
         console.log("room", room);
         res.send(room);
       } catch (error) {
-        res.status(500).send({ message: "Failed to fetch room", error: error.message });
+        res
+          .status(500)
+          .send({ message: "Failed to fetch room", error: error.message });
       }
     });
 
+    app.post("/my-bookings", async (req, res) => {
+      try {
+        const booking = req.body;
+        const { roomId, date, startTime, endTime } = booking;
 
+        const existingBookings = await bookingsCollection
+          .find({ roomId, date, status: { $ne: "Cancelled" } })
+          .toArray();
+
+        const toMinutes = (time) => {
+          const [hours, minutes] = time.split(":").map(Number);
+          return hours * 60 + minutes;
+        };
+
+        const conflict = existingBookings.some((item) => {
+          return (
+            toMinutes(startTime) < toMinutes(item.endTime) &&
+            toMinutes(endTime) > toMinutes(item.startTime)
+          );
+        });
+
+        if (conflict) {
+          return res.status(409).send({
+            message: "This room is already booked for this time.",
+          });
+        }
+
+        const result = await bookingsCollection.insertOne({
+          ...booking,
+          status: "Confirmed",
+          createdAt: new Date(),
+        });
+
+        await roomsCollection.updateOne(
+          { _id: new ObjectId(roomId) },
+          { $inc: { bookingCount: 1 } },
+        );
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({
+          message: "Failed to create booking",
+          error: error.message,
+        });
+      }
+    });
 
     await client.db("admin").command({ ping: 1 });
 
