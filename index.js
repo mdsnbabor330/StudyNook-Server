@@ -1,4 +1,4 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -86,6 +86,17 @@ export async function connectToMongoDB() {
         res.send(rooms);
       } catch (error) {
         res.status(500).send({ message: "Failed to fetch rooms", error: error.message });
+      }
+    });
+
+    app.get("/rooms/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const room = await roomsCollection.findOne({ _id: new ObjectId(id)});
+        console.log("room", room);
+        res.send(room);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to fetch room", error: error.message });
       }
     });
 
