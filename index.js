@@ -48,6 +48,47 @@ export async function connectToMongoDB() {
       }
     });
 
+    app.get("/rooms", async (req, res) => {
+      try {
+        const { search, floor, amenity, maxRate, minCapacity, sort } = req.query;
+        let query = {};
+
+        if (search) {
+          query.roomName = { $regex: search, $options: "i" };
+        }
+
+        if (floor && floor !== "all") {
+          query.floor = floor;
+        }
+
+        if (amenity && amenity !== "all") {
+          query.amenities = { $in: [amenity] };
+        }
+
+        if (minCapacity) {
+          query.capacity = { $gte: Number(minCapacity) };
+        }
+
+        if (maxRate) {
+          query.hourlyRate = { $lte: Number(maxRate) };
+        }
+
+        let sortOption = { _id: -1 };
+        if (sort === "price-low") {
+          sortOption = { hourlyRate: 1 };
+        } else if (sort === "price-high") {
+          sortOption = { hourlyRate: -1 };
+        } else if (sort === "capacity") {
+          sortOption = { capacity: -1 };
+        }
+
+        const rooms = await roomsCollection.find(query).sort(sortOption).toArray();
+        res.send(rooms);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to fetch rooms", error: error.message });
+      }
+    });
+
 
 
     await client.db("admin").command({ ping: 1 });
