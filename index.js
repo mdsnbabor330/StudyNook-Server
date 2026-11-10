@@ -211,6 +211,40 @@ export async function connectToMongoDB() {
       }
     });
 
+    app.patch("/my-bookings/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const booking = await bookingsCollection.findOne({
+          _id: new ObjectId(id),
+        });
+        if (!booking) {
+          return res.status(404).send({ message: "Booking not found" });
+        }
+
+        const result = await bookingsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: "Cancelled" } },
+        );
+
+        if (booking.roomId) {
+          try {
+            await roomsCollection.updateOne(
+              { _id: new ObjectId(booking.roomId) },
+              { $inc: { bookingCount: -1 } },
+            );
+          } catch (e) {
+            console.warn("Could not decrement room booking count:", e.message);
+          }
+        }
+
+        res.send(result);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ message: "Failed to cancel booking", error: error.message });
+      }
+    });
+
     await client.db("admin").command({ ping: 1 });
 
     console.log("Successfully connected to MongoDB!");
