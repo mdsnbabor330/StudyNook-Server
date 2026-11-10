@@ -136,6 +136,17 @@ export async function connectToMongoDB() {
       }
     });
 
+    app.delete("/rooms/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await roomsCollection.deleteOne({ _id: new ObjectId(id) });
+        await bookingsCollection.deleteMany({ roomId: id });
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to delete room", error: error.message });
+      }
+    });
+
     app.post("/my-bookings", async (req, res) => {
       try {
         const booking = req.body;
