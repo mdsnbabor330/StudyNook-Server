@@ -34,6 +34,19 @@ export async function connectToMongoDB() {
       }
     });
 
+    app.get("/rooms/my-listing", async (req, res) => {
+      try {
+        const { userId } = req.query;
+        const query = userId ? { userId } : {};
+        const result = await roomsCollection.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ message: "Failed to fetch listings", error: error.message });
+      }
+    });
+
     app.get("/explore-rooms", async (req, res) => {
       try {
         const rooms = await roomsCollection
