@@ -111,6 +111,31 @@ export async function connectToMongoDB() {
       }
     });
 
+    app.put("/rooms/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updatedData = { ...req.body };
+        delete updatedData._id;
+
+        if (updatedData.capacity) {
+          updatedData.capacity = Number(updatedData.capacity);
+        }
+        if (updatedData.hourlyRate) {
+          updatedData.hourlyRate = Number(updatedData.hourlyRate);
+        }
+
+        const result = await roomsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updatedData },
+        );
+        res.send(result);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ message: "Failed to update room", error: error.message });
+      }
+    });
+
     app.post("/my-bookings", async (req, res) => {
       try {
         const booking = req.body;
