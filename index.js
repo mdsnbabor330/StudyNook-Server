@@ -139,11 +139,15 @@ export async function connectToMongoDB() {
     app.delete("/rooms/:id", async (req, res) => {
       try {
         const id = req.params.id;
-        const result = await roomsCollection.deleteOne({ _id: new ObjectId(id) });
+        const result = await roomsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
         await bookingsCollection.deleteMany({ roomId: id });
         res.send(result);
       } catch (error) {
-        res.status(500).send({ message: "Failed to delete room", error: error.message });
+        res
+          .status(500)
+          .send({ message: "Failed to delete room", error: error.message });
       }
     });
 
@@ -191,6 +195,19 @@ export async function connectToMongoDB() {
           message: "Failed to create booking",
           error: error.message,
         });
+      }
+    });
+
+    app.get("/my-bookings", async (req, res) => {
+      try {
+        const { userId } = req.query;
+        const query = userId ? { userId } : {};
+        const bookingsroom = await bookingsCollection.find(query).toArray();
+        res.send(bookingsroom);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ message: "Failed to fetch bookings", error: error.message });
       }
     });
 
