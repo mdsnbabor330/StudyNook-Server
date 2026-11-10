@@ -245,6 +245,20 @@ export async function connectToMongoDB() {
       }
     });
 
+    app.delete("/my-bookings/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await bookingsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ message: "Failed to delete booking", error: error.message });
+      }
+    });
+
     await client.db("admin").command({ ping: 1 });
 
     console.log("Successfully connected to MongoDB!");
