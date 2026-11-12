@@ -1,9 +1,8 @@
-
-import { MongoClient, ObjectId } from "mongodb";
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import { createRemoteJWKSet, jwtVerify } from "jose-cjs";
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
 dotenv.config();
 
@@ -15,7 +14,13 @@ const clientUrl = process.env.CLIENT_URL;
 app.use(cors());
 app.use(express.json());
 
-const client = new MongoClient(dbUrl);
+const client = new MongoClient(dbUrl, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+});
 
 const JWKS = createRemoteJWKSet(new URL(`${clientUrl}/api/auth/jwks`));
 
@@ -42,8 +47,7 @@ const verfiyToken = async (req, res, next) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 };
-
-export async function connectToMongoDB() {
+async function run() {
   try {
     await client.connect();
 
@@ -310,14 +314,14 @@ export async function connectToMongoDB() {
     console.error("MongoDB connection error:", error);
     throw error;
   }
+   finally {
+    // Ensures that the client will close when you finish/error
+    // await client.close();
+  }
 }
+run().catch(console.dir);
 
-connectToMongoDB();
 
-// Call this only when your application terminates
-export async function disconnectFromMongoDB() {
-  await client.close();
-}
 
 // Home Route
 app.get("/", (req, res) => {
@@ -326,5 +330,3 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
-
-export default app;
