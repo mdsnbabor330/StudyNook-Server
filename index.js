@@ -1,18 +1,47 @@
+
 import { MongoClient, ObjectId } from "mongodb";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { createRemoteJWKSet, jwtVerify } from "jose-cjs";
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 5000;
 const dbUrl = process.env.DB_URL;
+const clientUrl = process.env.CLIENT_URL;
 
 app.use(cors());
 app.use(express.json());
 
 const client = new MongoClient(dbUrl);
+
+const JWKS = createRemoteJWKSet(new URL(`${clientUrl}/api/auth/jwks`));
+
+const verfiyToken = async (req, res, next) => {
+  const authHeader = req?.headers.authorization || req?.headers.Authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
+  const token = authHeader.split(" ")[1];
+
+  console.log("Token:", token);
+
+  if (!token) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+    console.log("Payload:", payload);
+    next();
+  } catch (error) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+};
 
 export async function connectToMongoDB() {
   try {
@@ -22,7 +51,7 @@ export async function connectToMongoDB() {
     let roomsCollection = db.collection("Rooms");
     const bookingsCollection = db.collection("Bookings");
 
-    app.post("/rooms/my-listings", async (req, res) => {
+    app.post("/rooms/my-listings", verfiyToken, async (req, res) => {
       try {
         const room = req.body;
         const result = await roomsCollection.insertOne(room);
@@ -34,7 +63,7 @@ export async function connectToMongoDB() {
       }
     });
 
-    app.get("/rooms/my-listing", async (req, res) => {
+    app.get("/rooms/my-listing", verfiyToken, async (req, res) => {
       try {
         const { userId } = req.query;
         const query = userId ? { userId } : {};
@@ -124,7 +153,7 @@ export async function connectToMongoDB() {
       }
     });
 
-    app.put("/rooms/:id", async (req, res) => {
+    app.put("/rooms/:id", verfiyToken, async (req, res) => {
       try {
         const id = req.params.id;
         const updatedData = { ...req.body };
@@ -149,7 +178,7 @@ export async function connectToMongoDB() {
       }
     });
 
-    app.delete("/rooms/:id", async (req, res) => {
+    app.delete("/rooms/:id", verfiyToken, async (req, res) => {
       try {
         const id = req.params.id;
         const result = await roomsCollection.deleteOne({
@@ -164,7 +193,7 @@ export async function connectToMongoDB() {
       }
     });
 
-    app.post("/my-bookings", async (req, res) => {
+    app.post("/my-bookings", verfiyToken, async (req, res) => {
       try {
         const booking = req.body;
         const { roomId, date, startTime, endTime } = booking;
@@ -211,7 +240,7 @@ export async function connectToMongoDB() {
       }
     });
 
-    app.get("/my-bookings", async (req, res) => {
+    app.get("/my-bookings", verfiyToken, async (req, res) => {
       try {
         const { userId } = req.query;
         const query = userId ? { userId } : {};
@@ -224,7 +253,7 @@ export async function connectToMongoDB() {
       }
     });
 
-    app.patch("/my-bookings/:id", async (req, res) => {
+    app.patch("/my-bookings/:id", verfiyToken, async (req, res) => {
       try {
         const id = req.params.id;
         const booking = await bookingsCollection.findOne({
@@ -258,7 +287,7 @@ export async function connectToMongoDB() {
       }
     });
 
-    app.delete("/my-bookings/:id", async (req, res) => {
+    app.delete("/my-bookings/:id", verfiyToken, async (req, res) => {
       try {
         const id = req.params.id;
         const result = await bookingsCollection.deleteOne({
